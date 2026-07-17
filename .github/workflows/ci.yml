@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+jobs:
+  lint-and-compile:
+    name: Lint & compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linters
+        run: pip install ruff
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Compile all Python
+        run: python -m compileall -q frappe_gcp_attachment
+
+      - name: Validate doctype JSON
+        run: |
+          python - <<'PY'
+          import glob, json, sys
+          bad = 0
+          for f in glob.glob("frappe_gcp_attachment/**/doctype/**/*.json", recursive=True):
+              try:
+                  json.load(open(f))
+              except Exception as e:
+                  bad += 1; print(f"INVALID JSON: {f} -> {e}")
+          sys.exit(1 if bad else 0)
+          PY

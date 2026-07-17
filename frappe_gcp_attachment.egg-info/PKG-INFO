@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: frappe-gcp-attachment
+Version: 0.0.1
+Summary: Frappe app to upload file attachments to Google Cloud Storage.
+Author: Nirmaan
+Author-email: techadmin@nirmaan.app

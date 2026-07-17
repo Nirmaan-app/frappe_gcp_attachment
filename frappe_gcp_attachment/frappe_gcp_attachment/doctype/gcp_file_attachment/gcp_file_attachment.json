@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-16 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "gcp_configuration",
+  "gcs_bucket_name",
+  "gcs_project_id",
+  "gcs_credentials_json",
+  "column_break_config",
+  "folder_name",
+  "signed_url_expiry_time",
+  "delete_file_from_cloud"
+ ],
+ "fields": [
+  {
+   "fieldname": "gcp_configuration",
+   "fieldtype": "Section Break",
+   "label": "GCP Configuration"
+  },
+  {
+   "fieldname": "gcs_bucket_name",
+   "fieldtype": "Data",
+   "label": "GCS Bucket Name",
+   "reqd": 1
+  },
+  {
+   "description": "Optional — inferred from the service-account JSON if left blank.",
+   "fieldname": "gcs_project_id",
+   "fieldtype": "Data",
+   "label": "GCP Project ID"
+  },
+  {
+   "description": "Paste the entire service-account key JSON file here.",
+   "fieldname": "gcs_credentials_json",
+   "fieldtype": "Small Text",
+   "label": "Service Account JSON"
+  },
+  {
+   "fieldname": "column_break_config",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Optional prefix prepended to all object keys.",
+   "fieldname": "folder_name",
+   "fieldtype": "Data",
+   "label": "Folder Name"
+  },
+  {
+   "default": "300",
+   "description": "Lifetime (seconds) of the signed URL generated for private files.",
+   "fieldname": "signed_url_expiry_time",
+   "fieldtype": "Int",
+   "label": "Signed URL Expiry Time (seconds)"
+  },
+  {
+   "default": "0",
+   "description": "If checked, deleting a File also deletes the object from GCS.",
+   "fieldname": "delete_file_from_cloud",
+   "fieldtype": "Check",
+   "label": "Delete File from Cloud on Trash"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-16 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe GCP Attachment",
+ "name": "GCP File Attachment",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
