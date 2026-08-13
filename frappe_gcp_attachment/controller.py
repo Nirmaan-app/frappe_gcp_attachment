@@ -15,6 +15,11 @@ import magic
 from google.cloud import storage
 from google.oauth2 import service_account
 
+# The GCS object key is stored in `File.content_hash`, a Data field -> varchar(140).
+# A longer key makes the after_insert UPDATE fail with StringDataRightTruncation,
+# which rolls back the whole File insert and silently loses the attachment.
+MAX_KEY_LENGTH = 140
+
 
 class GCPOperations(object):
     """Google Cloud Storage backend for Frappe File attachments.
@@ -51,6 +56,24 @@ class GCPOperations(object):
     def sanitize_filename_for_header(self, file_name):
         return re.sub(r'[^\x20-\x7E]', '', file_name)
 
+    def fit_key(self, prefix, file_name):
+        """Trim the file-name tail so `prefix + file_name` fits MAX_KEY_LENGTH.
+
+        Only the object key is shortened -- the name shown to users comes from
+        `File.file_name`, and the 8-char random segment in the prefix keeps the
+        key unique even when two long names truncate to the same text.
+        """
+        budget = MAX_KEY_LENGTH - len(prefix)
+        if len(file_name) <= budget:
+            return prefix + file_name
+
+        base, ext = os.path.splitext(file_name)
+        if len(ext) > 12:
+            # A stray dot mid-name, not a real extension.
+            base, ext = file_name, ''
+        base = base[:max(budget - len(ext), 1)]
+        return (prefix + base + ext)[:MAX_KEY_LENGTH]
+
     def key_generator(self, file_name, parent_doctype, parent_name):
         hook_cmd = frappe.get_hooks().get("gcs_key_generator") or frappe.get_hooks().get("s3_key_generator")
         if hook_cmd:
@@ -59,7 +82,7 @@ class GCPOperations(object):
                     file_name=file_name, parent_doctype=parent_doctype, parent_name=parent_name
                 )
                 if k:
-                    return k.rstrip('/').lstrip('/')
+                    return k.rstrip('/').lstrip('/')[:MAX_KEY_LENGTH]
             except Exception:
                 pass
 
@@ -72,11 +95,10 @@ class GCPOperations(object):
         month = today.strftime("%m")
         day = today.strftime("%d")
 
+        prefix = f"{year}/{month}/{day}/{parent_doctype}/{key}_"
         if self.folder_name:
-            final_key = f"{self.folder_name}/{year}/{month}/{day}/{parent_doctype}/{key}_{file_name}"
-        else:
-            final_key = f"{year}/{month}/{day}/{parent_doctype}/{key}_{file_name}"
-        return final_key
+            prefix = f"{self.folder_name}/{prefix}"
+        return self.fit_key(prefix, file_name)
 
     def public_url(self, key):
         """Permanent public URL — public files are made readable at upload via make_public()
@@ -156,7 +178,6 @@ def file_upload_to_gcs(doc, method):
         else:
             file_url = gcp.public_url(key)
 
-        os.remove(file_path)
         frappe.db.sql(
             """UPDATE `tabFile` SET file_url=%s, folder=%s, old_parent=%s, content_hash=%s WHERE name=%s""",
             (file_url, 'Home/Attachments', 'Home/Attachments', key, doc.name),
@@ -169,6 +190,11 @@ def file_upload_to_gcs(doc, method):
             )
 
         frappe.db.commit()
+
+        # Drop the local copy only once the row pointing at GCS is committed.
+        # Deleting earlier means any failure in between rolls back the File
+        # insert while the bytes are already gone from disk.
+        os.remove(file_path)
 
 
 @frappe.whitelist()
@@ -203,12 +229,12 @@ def upload_existing_files(name, file_name):
         else:
             file_url = gcp.public_url(key)
 
-        os.remove(file_path)
         frappe.db.sql(
             """UPDATE `tabFile` SET file_url=%s, folder=%s, old_parent=%s, content_hash=%s WHERE name=%s""",
             (file_url, 'Home/Attachments', 'Home/Attachments', key, doc.name),
         )
         frappe.db.commit()
+        os.remove(file_path)
 
 
 def gcs_file_regex_match(file_url):
